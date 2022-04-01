@@ -8,6 +8,7 @@ $InvalidPathChars = [IO.Path]::GetInvalidFileNameChars() -join ''
 $InvalidPathCharsRegEx = "[{0}]" -f [RegEx]::Escape($InvalidPathChars)
 
 Get-ChildItem -Path $OutputPath -Include * -File -Recurse | foreach { $_.Delete()}
+Out-File -FilePath "$OutputPath\CombinedChecklists.txt"
 "Priority, Group, Name" | Out-File -FilePath "$OutputPath\_Checklists.csv"
 
 $Files = Get-ChildItem "$DefaultChecklistPath\CommandModule\*\*.json"
@@ -18,9 +19,15 @@ foreach ($File in $Files) {
     $JsonGroupValue = $ChecklistJson.Group -replace $InvalidPathCharsRegEx
     $JsonNameValue = $ChecklistJson.Name -replace $InvalidPathCharsRegEx
 
-    $ChecklistJson.checklistText -replace "<size=21>", "" -replace "</size>", "" | Out-File -FilePath "$OutputPath\$($JsonPriorityValue) - $($JsonGroupValue) - $($JsonNameValue).txt"
+    $($ChecklistJson.checklistText -replace "<size=21>", "" -replace "</size>", "").TrimEnd() | Out-File -FilePath "$OutputPath\$($JsonPriorityValue) - $($JsonGroupValue) - $($JsonNameValue).txt"
     Add-Content -Path "$OutputPath\_Checklists.csv" -Value "$($JsonPriorityValue), $($JsonGroupValue), $($JsonNameValue)"
 }
 
 $Csv = Import-Csv -delimiter ',' -Encoding UTF8 "$OutputPath\_Checklists.csv" | Sort-Object { [int]$_.Priority }
 $Csv | Export-Csv -Encoding UTF8 -Path "$OutputPath\_SortedChecklists.csv" -NoTypeInformation
+
+$Files = Get-ChildItem $OutputPath -Filter "*.txt"
+foreach ($File in $Files) {
+    Add-Content -Path "$OutputPath\CombinedChecklists.txt" -Value $($File | Get-Content -Encoding UTF8)
+    Add-Content -Path "$OutputPath\CombinedChecklists.txt" -Value "`f"
+}
