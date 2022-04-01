@@ -1,11 +1,26 @@
-﻿#Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy ByPass
+#Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy ByPass
 #Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Default
 
-Set-Variable DefaultChecklistPath -value "E:\Steam\steamapps\common\Reentry - An Orbital Simulator\ReEntry_Data\StreamingAssets\DefaultChecklists"
+$DefaultChecklistPath = "E:\Steam\steamapps\common\Reentry - An Orbital Simulator\ReEntry_Data\StreamingAssets\DefaultChecklists"
+$OutputPath = "C:\Users\samth\Desktop\Reentry Checklists"
 
-Get-ChildItem -Path "$DefaultChecklistPath\CommandModule" -Directory | ForEach-Object {
-    $_.FullName
-    Set-Variable ChecklistJsonFile -value (Get-ChildItem -Path $_.FullName -Filter *.json | Select-Object -First 1)   
-    Set-Variable ChecklistJson -value $ChecklistJsonFile | Get-Content -Encoding UTF8 | ConvertFrom-Json
-    $ChecklistJson.checklistText -replace "<size=21>", "" -replace "</size>", "" | Out-File -FilePath "C:\Users\samth\Desktop\Reentry Checklists\$($ChecklistJson.Group) - $($ChecklistJson.Name).txt"
+$InvalidPathChars = [IO.Path]::GetInvalidFileNameChars() -join ''
+$InvalidPathCharsRegEx = "[{0}]" -f [RegEx]::Escape($InvalidPathChars)
+
+Get-ChildItem -Path $OutputPath -Include * -File -Recurse | foreach { $_.Delete()}
+"Priority, Group, Name" | Out-File -FilePath "$OutputPath\_Checklists.csv"
+
+$Files = Get-ChildItem "$DefaultChecklistPath\CommandModule\*\*.json"
+foreach ($File in $Files) {
+    $ChecklistJson = $File | Get-Content -Encoding UTF8 | ConvertFrom-Json
+
+    $JsonPriorityValue = $ChecklistJson.SortPriority.ToString().PadLeft(9, "0")
+    $JsonGroupValue = $ChecklistJson.Group -replace $InvalidPathCharsRegEx
+    $JsonNameValue = $ChecklistJson.Name -replace $InvalidPathCharsRegEx
+
+    $ChecklistJson.checklistText -replace "<size=21>", "" -replace "</size>", "" | Out-File -FilePath "$OutputPath\$($JsonPriorityValue) - $($JsonGroupValue) - $($JsonNameValue).txt"
+    Add-Content -Path "$OutputPath\_Checklists.csv" -Value "$($JsonPriorityValue), $($JsonGroupValue), $($JsonNameValue)"
 }
+
+$Csv = Import-Csv -delimiter ',' -Encoding UTF8 "$OutputPath\_Checklists.csv" | Sort-Object { [int]$_.Priority }
+$Csv | Export-Csv -Encoding UTF8 -Path "$OutputPath\_SortedChecklists.csv" -NoTypeInformation
