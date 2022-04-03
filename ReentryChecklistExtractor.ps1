@@ -1,8 +1,16 @@
 #Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy ByPass
 #Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Default
 
-# Config parameters
-$DefaultChecklistPath = "E:\Steam\steamapps\common\Reentry - An Orbital Simulator\ReEntry_Data\StreamingAssets\DefaultChecklists"
+# Locate the Steam install folder
+$Is64Bit = ($env:PROCESSOR_ARCHITECTURE -eq "AMD64")
+$SteamRegistryKey = ("HKLM:\SOFTWARE\Valve\Steam", "HKLM:\SOFTWARE\Wow6432Node\Valve\Steam")[$Is64Bit -eq "True"]
+$SteamInstallFolder = (Get-ItemPropertyValue -Path $SteamRegistryKey -Name InstallPath)
+
+# Find the path to the users Desktop
+$DesktopPath = [Environment]::GetFolderPath("Desktop")
+
+# Define where the default checklist definitions can be found
+$DefaultChecklistPath = "$SteamInstallFolder\steamapps\common\Reentry - An Orbital Simulator\ReEntry_Data\StreamingAssets\DefaultChecklists"
 
 # Helpers to make file paths legal
 $InvalidPathChars = [IO.Path]::GetInvalidFileNameChars() -join ''
@@ -13,7 +21,8 @@ function ParseJsonChecklists {
         $Spacecraft
     )
 
-    $OutputPath = "C:\Users\samth\Desktop\Reentry Checklists\$Spacecraft"
+    # Where the generated checklist text documents will be saved
+    $OutputPath = "$DesktopPath\Reentry Checklists\$Spacecraft"
     
     # Ensure that the output directory exists
     New-Item -ItemType Directory -Force -Path $OutputPath
@@ -53,6 +62,7 @@ function ParseJsonChecklists {
     Out-File -FilePath "$OutputPath\_CombinedChecklists.txt"
     foreach ($File in $Files) {
         Add-Content -Path "$OutputPath\_CombinedChecklists.txt" -Value $($File | Get-Content -Encoding UTF8)
+        # Add the formfeed control character to create page breaks between checklists if the document is opened in something like Word
         Add-Content -Path "$OutputPath\_CombinedChecklists.txt" -Value "`f"
     }
 }
